@@ -1,0 +1,57 @@
+<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><title>GESSA – إكمال الحساب</title><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800&display=swap"><link rel="stylesheet" href="assets/app.css"><style>label{display:block;margin:6px 0;font-weight:600}</style></head><body>
+<main><h1>إكمال إعداد حسابك</h1>
+<form class="card" id="f">
+<p class="muted">محتاجين رقم تليفونك وتاريخ ميلادك. بياناتك دي خاصة بيك ومش بتظهر لأي مستخدم تاني.</p>
+<label for="dob">تاريخ الميلاد</label><input id="dob" type="date" required>
+<label for="ph">رقم التليفون (مثل 01012345678 أو مع كود الدولة +201012345678)</label><input id="ph" type="tel" dir="ltr" inputmode="tel" placeholder="+201012345678" required>
+<button class="btn" id="go">متابعة</button>
+</form>
+<form class="card" id="v" hidden>
+<p id="vmsg"></p><input id="code" inputmode="numeric" maxlength="8" dir="ltr" placeholder="كود التحقق" required>
+<button class="btn">تأكيد</button><button type="button" class="link" id="resend">إعادة إرسال الكود</button>
+</form></main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script><script src="config.js"></script>
+<script>
+GESSA.boot('onboarding',function(c,user){
+  var $=function(i){return document.getElementById(i)},say=GESSA.say,phone='';
+  function norm(v){v=v.replace(/[\s\-()]/g,'');if(v.indexOf('00')===0)v='+'+v.slice(2);if(/^01\d{9}$/.test(v))v='+20'+v.slice(1);return v}
+  function ageOk(s){var d=new Date(s),t=new Date();return !isNaN(d)&&d<=new Date(t.getFullYear()-13,t.getMonth(),t.getDate())}
+  function done(){location.replace('home.html')}
+  function sendCode(){
+    c.auth.updateUser({phone:phone}).then(function(r){
+      $('go').disabled=false;
+      if(r.error)return say('تعذر إرسال الكود: '+r.error.message);
+      $('f').hidden=true;$('v').hidden=false;$('vmsg').textContent='بعتنا كود تحقق على '+phone;$('code').focus();
+    });
+  }
+  c.from('profile_private').select('phone,phone_verified,date_of_birth').eq('user_id',user.id).maybeSingle().then(function(r){
+    var p=r.data;if(!p)return;
+    if(p.phone)$('ph').value=p.phone;
+    if(p.date_of_birth){$('dob').value=p.date_of_birth;$('dob').readOnly=true}
+    if(p.phone&&p.date_of_birth&&(!REQUIRE_PHONE_VERIFICATION||p.phone_verified))done();
+  });
+  $('f').onsubmit=function(e){
+    e.preventDefault();
+    var dob=$('dob').value;phone=norm($('ph').value);
+    if(!ageOk(dob))return say('لازم يكون عمرك 13 سنة على الأقل عشان تستخدم GESSA.');
+    if(!/^\+[1-9]\d{7,14}$/.test(phone))return say('رقم التليفون غير صحيح. اكتبه مع كود الدولة مثل +201012345678.');
+    $('go').disabled=true;
+    c.from('profile_private').select('date_of_birth').eq('user_id',user.id).maybeSingle().then(function(r){
+      return r.data?c.from('profile_private').update({phone:phone,date_of_birth:r.data.date_of_birth||dob}).eq('user_id',user.id)
+                   :c.from('profile_private').insert({user_id:user.id,phone:phone,date_of_birth:dob});
+    }).then(function(r){
+      if(r.error){$('go').disabled=false;return say(r.error.message)}
+      if(!REQUIRE_PHONE_VERIFICATION)return done();
+      sendCode();
+    });
+  };
+  $('resend').onclick=sendCode;
+  $('v').onsubmit=function(e){
+    e.preventDefault();
+    c.auth.verifyOtp({phone:phone,token:$('code').value.trim(),type:'phone_change'}).then(function(r){
+      if(r.error)return say('الكود غير صحيح أو انتهت صلاحيته.');
+      return c.rpc('mark_phone_verified').then(function(x){if(x.error)return say(x.error.message);done()});
+    });
+  };
+},{skipOnboarding:true});
+</script></body></html>

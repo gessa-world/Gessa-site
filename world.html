@@ -1,0 +1,14 @@
+<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><title>GESSA – العالم الافتراضي</title><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800&display=swap"><link rel="stylesheet" href="assets/app.css"></head><body>
+<main><h1>العالم الافتراضي</h1><div class="card" id="w"></div><div class="card"><h2>العالم المفتوح</h2><p class="muted">لعبة العالم المفتوح (حركة اللاعبين، الدردشة الصوتية، المتاجر داخل العالم) بتتبني كعميل لعبة منفصل بسيرفر ألعاب، وبيتحط هنا لما يجهز. دلوقتي الصفحة بتعرض العوالم المسجلة ورصيدك.</p></div></main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script><script src="config.js"></script>
+<script>
+GESSA.boot('world',function(c,user){
+  var w=document.getElementById('w'),h=GESSA.h;
+  Promise.all([c.from('wallets').select('coins').eq('user_id',user.id).maybeSingle(),c.from('worlds').select('name,max_players')]).then(function(a){
+    w.append(h('h2',0,'رصيدك: '+((a[0].data&&a[0].data.coins)||0).toLocaleString('ar-EG')+' عملة'));
+    var ws=a[1].data||[];
+    if(!ws.length)w.append(h('p','muted','مفيش عوالم مسجلة لسه.'));
+    ws.forEach(function(x){w.append(h('div','item',x.name+' — سعة '+x.max_players+' لاعب'))});
+  });
+});
+</script></body></html>

@@ -1,0 +1,18 @@
+<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><title>GESSA – التسوق</title><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800&display=swap"><link rel="stylesheet" href="assets/app.css"></head><body>
+<main><h1>التسوق</h1><div class="grid" id="g"></div></main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script><script src="config.js"></script>
+<script>
+GESSA.boot('shop',function(c){
+  var g=document.getElementById('g'),h=GESSA.h;
+  c.from('products').select('id,title,description,price_cents,currency,stock,stores(name)').eq('is_active',true).order('created_at',{ascending:false}).limit(60).then(function(r){
+    if(r.error)return GESSA.say(r.error.message);
+    if(!r.data.length)g.append(h('p','muted','مفيش منتجات لسه. التجار المعتمدين هيضيفوا منتجاتهم هنا.'));
+    r.data.forEach(function(p){
+      var k=h('div','card');
+      k.append(h('h2',0,p.title),h('div','meta','المتجر: '+((p.stores&&p.stores.name)||'')),h('div',null,p.description||''),h('div','price',GESSA.money(p.price_cents,p.currency)),h('div','muted',p.stock>0?'متوفر: '+p.stock:'نفدت الكمية'));
+      var b=h('button','btn','اطلب الآن');b.onclick=function(){GESSA.say('الشراء هيشتغل بعد ربط بوابة الدفع (Paymob أو Stripe).')};k.append(b);
+      g.append(k);
+    });
+  });
+});
+</script></body></html>

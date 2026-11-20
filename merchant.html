@@ -1,0 +1,47 @@
+<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><title>GESSA – التجار</title><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800&display=swap"><link rel="stylesheet" href="assets/app.css"></head><body>
+<main><h1>لوحة التاجر</h1><div id="box"></div></main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script><script src="config.js"></script>
+<script>
+GESSA.boot('merchant',function(c,user){
+  var box=document.getElementById('box'),h=GESSA.h,say=GESSA.say;
+  function field(f,name,ph,type){var i=h('input');i.name=name;i.placeholder=ph;i.type=type||'text';i.required=true;f.append(i);return i}
+  function load(){
+    c.from('merchant_profiles').select('status').eq('id',user.id).maybeSingle().then(function(r){
+      box.textContent='';
+      if(r.error)return say(r.error.message);
+      if(!r.data)return apply();
+      if(r.data.status==='pending')return box.append(h('div','card','طلبك كتاجر قيد المراجعة. هتقدر تنشئ متجرك بعد موافقة الإدارة.'));
+      if(r.data.status!=='approved')return box.append(h('div','card','حساب التاجر موقوف. تواصل مع الدعم.'));
+      dash();
+    });
+  }
+  function apply(){
+    var f=h('form','card');f.append(h('h2',0,'التسجيل كتاجر'));field(f,'biz','اسم النشاط التجاري');field(f,'phone','رقم الهاتف','tel');f.append(h('button','btn','إرسال الطلب'));
+    f.onsubmit=function(e){e.preventDefault();var el=f.elements;
+      c.from('merchant_profiles').insert({id:user.id,business_name:el.biz.value.trim(),phone:el.phone.value.trim()}).then(function(r){if(r.error)return say(r.error.message);say('تم إرسال طلبك.');load()})};
+    box.append(f);
+  }
+  function dash(){
+    var f=h('form','card');f.append(h('h2',0,'إنشاء متجر جديد'));field(f,'sname','اسم المتجر');field(f,'slug','رابط المتجر بالإنجليزي مثل my-shop');
+    var d=h('textarea');d.name='descr';d.placeholder='وصف المتجر';f.append(d,h('button','btn','إنشاء المتجر'));
+    f.onsubmit=function(e){e.preventDefault();var el=f.elements;
+      c.from('stores').insert({owner_id:user.id,name:el.sname.value.trim(),slug:el.slug.value.trim().toLowerCase(),description:el.descr.value.trim()}).then(function(r){if(r.error)return say(r.error.message);say('تم إنشاء المتجر.');load()})};
+    box.append(f);
+    c.from('stores').select('id,name,slug').eq('owner_id',user.id).then(function(r){(r.data||[]).forEach(store)});
+  }
+  function store(s){
+    var k=h('div','card'),f=h('form','row'),list=h('div');
+    k.append(h('h2',0,s.name+' ('+s.slug+')'));
+    field(f,'title','اسم المنتج');var p=field(f,'price','السعر بالجنيه','number');p.min='0';p.step='0.01';var q=field(f,'stock','الكمية','number');q.min='0';f.append(h('button','btn','إضافة'));
+    k.append(f,list);box.append(k);
+    function refresh(){c.from('products').select('id,title,price_cents,stock').eq('store_id',s.id).order('created_at',{ascending:false}).then(function(r){
+      list.textContent='';
+      (r.data||[]).forEach(function(x){var row=h('div','item',x.title+' — '+GESSA.money(x.price_cents)+' — المخزون '+x.stock),d=h('button','link','حذف');d.onclick=function(){c.from('products').delete().eq('id',x.id).then(refresh)};row.append(d);list.append(row)});
+    })}
+    f.onsubmit=function(e){e.preventDefault();var el=f.elements;
+      c.from('products').insert({store_id:s.id,title:el.title.value.trim(),price_cents:Math.round(parseFloat(el.price.value)*100),stock:parseInt(el.stock.value,10)}).then(function(r){if(r.error)return say(r.error.message);f.reset();refresh()})};
+    refresh();
+  }
+  load();
+});
+</script></body></html>
